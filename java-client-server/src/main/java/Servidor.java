@@ -3,6 +3,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
 
+// TODO: Limitar o servidor para atender no MÁXIMO cinco conexões
 public class Servidor {
 
     private final int porta;
