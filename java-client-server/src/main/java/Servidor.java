@@ -40,6 +40,9 @@ public class Servidor {
                 System.out.println(s.nextLine());
             }
 
+            // Feedback de desconexão do cliente
+            System.out.println("Cliente " + cliente.getInetAddress().getHostAddress() + " desconectado.");
+
             s.close();
             cliente.close();
 
