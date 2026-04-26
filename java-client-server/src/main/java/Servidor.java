@@ -3,6 +3,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 // TODO: Limitar o servidor para atender no MÁXIMO cinco conexões
 //   * Soluções possíveis:
@@ -16,6 +17,8 @@ public class Servidor {
 
     private final int porta;
     private ServerSocket serverSocket;
+
+    private final AtomicInteger contadorId = new AtomicInteger(0);
 
     private static final int MAX_CONEXOES = 5;
     private final Semaphore semaforo = new Semaphore(MAX_CONEXOES);
@@ -38,10 +41,11 @@ public class Servidor {
 //                        cliente.getInetAddress().getHostAddress());
 
                 if (semaforo.tryAcquire()) {
+                    int idCliente = contadorId.incrementAndGet();
                     System.out.println("Nova conexão com o cliente " + enderecoCliente +
                             " | Conexões ativas: " + (MAX_CONEXOES - semaforo.availablePermits()));
                     // À medida que novas conexões são estabelecidas, esses clientes ganham novas "threads".
-                    Thread thread = new Thread(() -> atenderCliente(cliente));
+                    Thread thread = new Thread(() -> atenderCliente(idCliente, cliente));
                     thread.start();
                 } else {
                     System.out.println("Conexão recusada (limite atingido): " + enderecoCliente);
@@ -54,26 +58,26 @@ public class Servidor {
         }
     }
 
-    private void atenderCliente(Socket cliente) {
+    private void atenderCliente(int idCliente, Socket cliente) {
         try {
             Scanner s = new Scanner(cliente.getInputStream());
 
             // Pontos bloqueantes
             while (s.hasNextLine()) {
                 // Pontos bloqueantes
-                System.out.println(s.nextLine());
+                System.out.println("[Cliente #" + idCliente + "] " + s.nextLine());
             }
 
             s.close();
             cliente.close();
 
         } catch (IOException e) {
-            System.err.println("Erro ao atender cliente: " + e.getMessage());
+            System.err.println("[Cliente #" + idCliente + "] Erro: " + e.getMessage());
         } finally {
             semaforo.release();
             // Feedback de desconexão do cliente
-            System.out.println("Cliente " + cliente.getInetAddress().getHostAddress() +
-                    " desconectado. | Conexões ativas: " + (MAX_CONEXOES - semaforo.availablePermits()));
+            System.out.println("[Cliente #" + idCliente + "] Desconectado | Conexões ativas: " +
+                    (MAX_CONEXOES - semaforo.availablePermits()));
         }
     }
 
