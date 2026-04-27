@@ -5,14 +5,6 @@ import java.util.Scanner;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
-// TODO: Limitar o servidor para atender no MÁXIMO cinco conexões
-//   * Soluções possíveis:
-//   * Contador de Conexões Ativas: Mantenha uma variável global (ou atômica) que incrementa no accept() e decrementa no close(). Se o
-//     limite for atingido, você pode fechar a nova conexão imediatamente ou enviar uma mensagem de "servidor cheio".
-//   * Parâmetro backlog no listen(): Ao chamar listen(fd, backlog), o backlog define o tamanho da fila de conexões pendentes (que ainda
-//     não foram aceitas pelo accept()). Conexões além disso serão recusadas pelo SO com um erro de "Connection Refused".
-//   * Pool de Workers: Se você usa um modelo de threads ou processos, limitar o tamanho do pool limita inerentemente quantas conexões
-//     podem ser processadas simultaneamente.
 public class Servidor {
 
     private final int porta;
@@ -37,14 +29,11 @@ public class Servidor {
                 Socket cliente = serverSocket.accept();
                 String enderecoCliente = cliente.getInetAddress().getHostAddress();
 
-//                System.out.println("Nova conexão com o cliente " +
-//                        cliente.getInetAddress().getHostAddress());
-
                 if (semaforo.tryAcquire()) {
                     int idCliente = contadorId.incrementAndGet();
                     System.out.println("Nova conexão com o cliente " + enderecoCliente +
                             " | Conexões ativas: " + (MAX_CONEXOES - semaforo.availablePermits()));
-                    // À medida que novas conexões são estabelecidas, esses clientes ganham novas "threads".
+
                     Thread thread = new Thread(() -> atenderCliente(idCliente, cliente));
                     thread.start();
                 } else {
