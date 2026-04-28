@@ -4,6 +4,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.Scanner;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,6 +16,8 @@ public class Servidor {
     private final AtomicInteger contadorId = new AtomicInteger(0);
     private static final int MAX_CONEXOES = 5;
     private final Semaphore semaforo = new Semaphore(MAX_CONEXOES);
+
+    private final ConcurrentHashMap<Integer, SessaoCliente> sessoesAtivas = new ConcurrentHashMap<>();
 
     public Servidor(int porta) {
         this.porta = porta;
@@ -56,17 +59,16 @@ public class Servidor {
     }
 
     private void atenderCliente(int idCliente, Socket cliente) {
-        BlockingQueue<String> filaSaida = new LinkedBlockingQueue<>();
+        BlockingQueue<String> filaEcho      = new LinkedBlockingQueue<>();
+        BlockingQueue<String> filaBroadcast = new LinkedBlockingQueue<>();
 
-        // Criamos uma fila fictícia para o broadcast para satisfazer o construtor
-        BlockingQueue<String> filaBroadcastDummy = new LinkedBlockingQueue<>();
+        SessaoCliente sessao = new SessaoCliente(cliente, filaEcho, filaBroadcast);
+        sessoesAtivas.put(idCliente, sessao); // registro antes de iniciar as threads
 
         Runnable callbackFechamento = () -> encerrarConexao(idCliente, cliente);
 
-        Thread tLeitura = new Thread(new ThreadLeitura(idCliente, cliente, filaSaida, callbackFechamento));
-
-        // Agora passamos os 4 argumentos exigidos
-        Thread tEscrita = new Thread(new ThreadEscrita(idCliente, cliente, filaSaida, filaBroadcastDummy));
+        Thread tLeitura = new Thread(new ThreadLeitura(idCliente, cliente, filaEcho, callbackFechamento));
+        Thread tEscrita = new Thread(new ThreadEscrita(idCliente, cliente, filaEcho, filaBroadcast));
 
         tLeitura.start();
         tEscrita.start();
@@ -95,8 +97,9 @@ public class Servidor {
         try {
             if (cliente != null && !cliente.isClosed()) {
                 cliente.close();
-                semaforo.release(); // Devolve a vaga para o semáforo
-                System.out.println("[Servidor] Conexão do Cliente #" + idCliente + " encerrada. Vaga liberada.");
+                semaforo.release();
+                sessoesAtivas.remove(idCliente); // limpa o registro
+                System.out.println("[Servidor] Cliente #" + idCliente + " desconectado. Vaga liberada.");
             }
         } catch (IOException e) {
             System.err.println("Erro ao encerrar conexão do cliente #" + idCliente + ": " + e.getMessage());
