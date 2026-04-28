@@ -17,6 +17,7 @@ public class Servidor {
     private final AtomicInteger contadorId = new AtomicInteger(0);
     private static final int MAX_CONEXOES = 5;
     private final Semaphore semaforo = new Semaphore(MAX_CONEXOES);
+    private volatile boolean encerrando = false;
 
     private final ConcurrentHashMap<Integer, SessaoCliente> sessoesAtivas = new ConcurrentHashMap<>();
 
@@ -99,9 +100,11 @@ public class Servidor {
         try {
             if (cliente != null && !cliente.isClosed()) {
                 cliente.close();
-                semaforo.release();
-                sessoesAtivas.remove(idCliente); // limpa o registro
-                System.out.println("[Servidor] Cliente #" + idCliente + " desconectado. Vaga liberada.");
+                if (!encerrando) {
+                    semaforo.release();         // só libera vaga em desconexão normal
+                    sessoesAtivas.remove(idCliente);
+                    System.out.println("[Servidor] Cliente #" + idCliente + " desconectado. Vaga liberada.");
+                }
             }
         } catch (IOException e) {
             System.err.println("Erro ao encerrar conexão do cliente #" + idCliente + ": " + e.getMessage());
@@ -110,7 +113,7 @@ public class Servidor {
 
     public void realizarBroadcast(String msg, int idRemetente) {
         for (Map.Entry<Integer, SessaoCliente> entrada : sessoesAtivas.entrySet()) {
-            if (entrada.getKey() == idRemetente) continue; // não reenvia ao próprio remetente
+            if (entrada.getKey().equals(idRemetente)) continue; // não reenvia ao próprio remetente
             entrada.getValue().filaBroadcast.offer(msg);
         }
     }
@@ -126,8 +129,34 @@ public class Servidor {
     public void fechar() {
         try {
             if (serverSocket != null && !serverSocket.isClosed()) {
-                System.out.println("[Servidor] Fechando socket principal...");
+                encerrando = true;
+                System.out.println("[Servidor] Iniciando encerramento...");
+
+                // 1. Para de aceitar novas conexões
                 serverSocket.close();
+
+                // 2. Percorre todas as sessões ativas e encerra cada uma
+                for (Map.Entry<Integer, SessaoCliente> entrada : sessoesAtivas.entrySet()) {
+                    int id = entrada.getKey();
+                    SessaoCliente sessao = entrada.getValue();
+
+                    try {
+                        // Avisa a ThreadEscrita para encerrar limpa
+                        sessao.filaEcho.offer(ThreadLeitura.POISON_PILL);
+
+                        // Fecha o socket, o que interrompe a ThreadLeitura bloqueada no hasNextLine()
+                        if (!sessao.socket.isClosed()) {
+                            sessao.socket.close();
+                        }
+
+                        System.out.println("[Servidor] Sessão do Cliente #" + id + " encerrada.");
+                    } catch (IOException e) {
+                        System.err.println("[Servidor] Erro ao encerrar Cliente #" + id + ": " + e.getMessage());
+                    }
+                }
+
+                sessoesAtivas.clear();
+                System.out.println("[Servidor] Encerramento concluído.");
             }
         } catch (IOException e) {
             System.err.println("Erro ao fechar o servidor: " + e.getMessage());
