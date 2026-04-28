@@ -1,43 +1,57 @@
-# TODO: implementar a cliente socket
 import socket
 
-def iniciar_cliente(host='127.0.0.1', port=65432):
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    
-    try:
-        client.connect((host, port))
-        print("Conectado ao servidor! Digite 'sair' para encerrar.")
+class Client:
+    def __init__(self, host, porta):
+        self.host = host
+        self.porta = porta
+        self.socket = None
+
+    def conectar(self):
+        """Estabelece a conexão com o servidor."""
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.connect((self.host, self.porta))
+            print("O cliente se conectou ao servidor!")
+        except ConnectionRefusedError:
+            print("Erro ao conectar: Conexão recusada (servidor offline).")
+        except Exception as e:
+            print(f"Erro inesperado ao conectar: {e}")
+
+    def enviar_mensagem(self, mensagem):
+        """Envia uma mensagem para o servidor."""
+        if not self.esta_conectado():
+            print("Cliente não está conectado. Chame conectar() primeiro.")
+            return False
         
-        while True:
-            mensagem = input("Mensagem para o servidor: ")
-            
-            if mensagem.lower() == 'sair':
-                print("Encerrando conexão: Solicitado pelo usuário.")
-                break
-            
-            client.sendall(mensagem.encode('utf-8'))
-            
-            # O recv() aguarda a resposta do servidor
-            resposta = client.recv(1024)
-            
-            # Se o recv retorna vazio, o servidor fechou a conexão
-            if not resposta:
-                print("Encerrando conexão por inatividade: O servidor encerrou a sessão.")
-                break
-                
-            print(f"Servidor: {resposta.decode('utf-8')}")
+        try:
+            self.socket.sendall(mensagem.encode('utf-8'))
+            return True
+        except (ConnectionResetError, BrokenPipeError):
+            print("Erro ao enviar: O servidor encerrou a conexão.")
+            return False
 
-    except ConnectionRefusedError:
-        print("Encerrando conexão: Falha ao conectar (servidor offline).")
-    except ConnectionResetError:
-        print("Encerrando conexão: O servidor reiniciou ou descartou a conexão.")
-    except BrokenPipeError:
-        print("Encerrando conexão: Falha na transmissão (servidor indisponível).")
-    except Exception as e:
-        print(f"Encerrando conexão: Ocorreu um erro inesperado ({e}).")
-    finally:
-        client.close()
-        print("Conexão fechada com sucesso.")
+    def receber_resposta(self, buffer_size=1024):
+        """Aguarda e recebe uma resposta do servidor."""
+        if not self.esta_conectado():
+            return None
+        
+        try:
+            dados = self.socket.recv(buffer_size)
+            if not dados:
+                print("O servidor encerrou a sessão.")
+                return None
+            return dados.decode('utf-8')
+        except Exception as e:
+            print(f"Erro ao receber dados: {e}")
+            return None
 
-if __name__ == "__main__":
-    iniciar_cliente()
+    def fechar(self):
+        """Fecha a conexão com o servidor."""
+        if self.socket:
+            self.socket.close()
+            self.socket = None
+            print("Conexão encerrada.")
+
+    def esta_conectado(self):
+        """Verifica se o socket ainda é válido."""
+        return self.socket is not None
