@@ -12,13 +12,17 @@ public class ThreadLeitura implements Runnable {
     private final BlockingQueue<String> filaEcho;      // respostas ao próprio cliente
     private final Runnable aoEncerrar;
 
+    private final Servidor servidor; // referência para disparar o broadcast
+
     public ThreadLeitura(int id, Socket socket,
                          BlockingQueue<String> filaEcho,
-                         Runnable aoEncerrar) {
+                         Runnable aoEncerrar,
+                         Servidor servidor) {
         this.id        = id;
         this.socket    = socket;
         this.filaEcho  = filaEcho;
         this.aoEncerrar = aoEncerrar;
+        this.servidor  = servidor;
     }
 
     @Override
@@ -30,8 +34,8 @@ public class ThreadLeitura implements Runnable {
 
                 if (msg.equalsIgnoreCase("sair")) break;
 
-                // Responde apenas ao remetente — não interfere nos broadcasts
-                filaEcho.put("Servidor recebeu: " + msg);
+                filaEcho.put("Servidor recebeu: " + msg);                      // echo ao remetente
+                servidor.realizarBroadcast("[Cliente #" + id + "]: " + msg, id); // distribui aos demais
             }
         } catch (Exception e) {
             System.err.println("[Leitura #" + id + "] Erro: " + e.getMessage());

@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -67,7 +68,7 @@ public class Servidor {
 
         Runnable callbackFechamento = () -> encerrarConexao(idCliente, cliente);
 
-        Thread tLeitura = new Thread(new ThreadLeitura(idCliente, cliente, filaEcho, callbackFechamento));
+        Thread tLeitura = new Thread(new ThreadLeitura(idCliente, cliente, filaEcho, callbackFechamento, this));
         Thread tEscrita = new Thread(new ThreadEscrita(idCliente, cliente, filaEcho, filaBroadcast));
 
         tLeitura.start();
@@ -85,6 +86,7 @@ public class Servidor {
                         fechar();
                         break;
                     }
+                    realizarBroadcast("[Servidor]: " + comando, -1);
                 }
             }
         });
@@ -103,6 +105,13 @@ public class Servidor {
             }
         } catch (IOException e) {
             System.err.println("Erro ao encerrar conexão do cliente #" + idCliente + ": " + e.getMessage());
+        }
+    }
+
+    public void realizarBroadcast(String msg, int idRemetente) {
+        for (Map.Entry<Integer, SessaoCliente> entrada : sessoesAtivas.entrySet()) {
+            if (entrada.getKey() == idRemetente) continue; // não reenvia ao próprio remetente
+            entrada.getValue().filaBroadcast.offer(msg);
         }
     }
 
