@@ -60,7 +60,8 @@ public class Servidor {
         }
     }
 
-    private void atenderCliente(int idCliente, Socket cliente) {
+    private void atenderCliente(int idCliente, Socket cliente) throws SocketException {
+        cliente.setSoTimeout(30_000);
         BlockingQueue<String> filaEcho      = new LinkedBlockingQueue<>();
         BlockingQueue<String> filaBroadcast = new LinkedBlockingQueue<>();
 

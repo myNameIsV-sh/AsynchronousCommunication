@@ -27,20 +27,28 @@ public class ThreadLeitura implements Runnable {
 
     @Override
     public void run() {
-        try (Scanner in = new Scanner(socket.getInputStream())) {
-            while (in.hasNextLine()) {
-                String msg = in.nextLine();
+        try (java.io.BufferedReader in = new java.io.BufferedReader(
+                new java.io.InputStreamReader(socket.getInputStream()))) {
+            String msg;
+            while ((msg = in.readLine()) != null) {
                 System.out.println("[Leitura #" + id + "] Recebido de Cliente #" + id + ": " + msg);
+
                 if (msg.equalsIgnoreCase("sair")) break;
 
-                filaEcho.put("Servidor recebeu: " + msg);                      // echo ao remetente
-                servidor.realizarBroadcast("[Cliente #" + id + "]: " + msg, id); // distribui aos demais
+                filaEcho.put("Servidor recebeu: " + msg);
+                servidor.realizarBroadcast("[Cliente #" + id + "]: " + msg, id);
+            }
+        } catch (java.net.SocketTimeoutException e) {
+            System.out.println("[Leitura #" + id + "] Cliente #" + id + " removido por inatividade.");
+            try {
+                filaEcho.put("Você foi desconectado por inatividade.");
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
             }
         } catch (Exception e) {
             System.err.println("[Leitura #" + id + "] Erro: " + e.getMessage());
         } finally {
             try {
-                // Desbloqueia a ThreadEscrita para que ela encerre limpa
                 filaEcho.put(POISON_PILL);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
