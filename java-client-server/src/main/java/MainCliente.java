@@ -9,15 +9,20 @@ public class MainCliente {
         cliente.conectar();
 
         if (cliente.estaConectado()) {
-            Socket socket = cliente.getSocket(); // precisará expor o socket — veja abaixo
+            Socket socket = cliente.getSocket();
 
-            // Thread dedicada a receber mensagens do servidor
+            final int[] meuId = {0};
             Thread tRecepcao = new Thread(() -> {
                 try (BufferedReader in = new BufferedReader(
                         new InputStreamReader(socket.getInputStream()))) {
                     String linha;
                     while ((linha = in.readLine()) != null) {
-                        System.out.println("[Servidor] " + linha);
+                        if (linha.startsWith("__ID__")) {
+                            meuId[0] = Integer.parseInt(linha.replace("__ID__", "").trim());
+                            System.out.println("Você é o Cliente #" + meuId[0]);
+                        } else {
+                            System.out.println("[Servidor] " + linha);
+                        }
                     }
                 } catch (Exception e) {
                     System.out.println("Conexão com o servidor encerrada.");
@@ -30,6 +35,7 @@ public class MainCliente {
             System.out.println("Digite suas mensagens (digite 'sair' para encerrar):");
 
             while (true) {
+                System.out.print("> [Cliente #" + meuId[0] + "]: ");
                 String linha = teclado.nextLine();
                 if (linha.equalsIgnoreCase("sair")) break;
                 cliente.enviarMensagem(linha);

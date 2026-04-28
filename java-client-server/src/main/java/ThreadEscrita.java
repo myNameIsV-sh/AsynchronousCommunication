@@ -22,6 +22,7 @@ public class ThreadEscrita implements Runnable {
     @Override
     public void run() {
         try (PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+            out.println("__ID__" + id);
             out.println("Conexão estabelecida com sucesso!");
 
             while (!socket.isClosed()) {

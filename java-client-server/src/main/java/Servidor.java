@@ -115,8 +115,11 @@ public class Servidor {
     }
 
     public void realizarBroadcast(String msg, int idRemetente) {
+        if (idRemetente == -1) {
+            System.out.println("[ADMIN] Broadcast enviado: " + msg);
+        }
         for (Map.Entry<Integer, SessaoCliente> entrada : sessoesAtivas.entrySet()) {
-            if (entrada.getKey().equals(idRemetente)) continue; // não reenvia ao próprio remetente
+            if (entrada.getKey().equals(idRemetente)) continue;
             entrada.getValue().filaBroadcast.offer(msg);
         }
     }

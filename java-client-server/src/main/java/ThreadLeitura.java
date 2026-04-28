@@ -30,8 +30,7 @@ public class ThreadLeitura implements Runnable {
         try (Scanner in = new Scanner(socket.getInputStream())) {
             while (in.hasNextLine()) {
                 String msg = in.nextLine();
-                System.out.println("[Leitura #" + id + "] Recebido: " + msg);
-
+                System.out.println("[Leitura #" + id + "] Recebido de Cliente #" + id + ": " + msg);
                 if (msg.equalsIgnoreCase("sair")) break;
 
                 filaEcho.put("Servidor recebeu: " + msg);                      // echo ao remetente
