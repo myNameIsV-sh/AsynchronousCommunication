@@ -44,6 +44,10 @@ public class Cliente {
         }
     }
 
+    public Socket getSocket() {
+        return socket;
+    }
+
     public boolean estaConectado() {
         return socket != null && socket.isConnected() && !socket.isClosed();
     }

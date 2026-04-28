@@ -65,7 +65,9 @@ public class Servidor {
         BlockingQueue<String> filaBroadcast = new LinkedBlockingQueue<>();
 
         SessaoCliente sessao = new SessaoCliente(cliente, filaEcho, filaBroadcast);
-        sessoesAtivas.put(idCliente, sessao); // registro antes de iniciar as threads
+        sessoesAtivas.put(idCliente, sessao);
+        System.out.println("[Servidor] Cliente #" + idCliente + " conectado. "
+                + "Vagas disponíveis: " + semaforo.availablePermits());
 
         Runnable callbackFechamento = () -> encerrarConexao(idCliente, cliente);
 
@@ -103,7 +105,8 @@ public class Servidor {
                 if (!encerrando) {
                     semaforo.release();         // só libera vaga em desconexão normal
                     sessoesAtivas.remove(idCliente);
-                    System.out.println("[Servidor] Cliente #" + idCliente + " desconectado. Vaga liberada.");
+                    System.out.println("[Servidor] Cliente #" + idCliente + " desconectado. "
+                            + "Vagas disponíveis: " + semaforo.availablePermits());
                 }
             }
         } catch (IOException e) {
