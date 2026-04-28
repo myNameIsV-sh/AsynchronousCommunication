@@ -1,7 +1,10 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Scanner;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -9,9 +12,7 @@ public class Servidor {
 
     private final int porta;
     private ServerSocket serverSocket;
-
     private final AtomicInteger contadorId = new AtomicInteger(0);
-
     private static final int MAX_CONEXOES = 5;
     private final Semaphore semaforo = new Semaphore(MAX_CONEXOES);
 
@@ -20,59 +21,102 @@ public class Servidor {
     }
 
     public void iniciar() {
+        // Inicia a thread administrativa para monitorar o console do servidor
+        monitorarComandos();
+
         try {
             serverSocket = new ServerSocket(porta);
-            System.out.println("Porta " + porta + " aberta!");
+            System.out.println("Servidor iniciado na porta " + porta);
+            System.out.println("Aguardando conexões (Limite: " + MAX_CONEXOES + ")...");
 
-            while (true) {
-                // Pontos bloqueantes
-                Socket cliente = serverSocket.accept();
-                String enderecoCliente = cliente.getInetAddress().getHostAddress();
+            while (!serverSocket.isClosed()) {
+                try {
+                    Socket cliente = serverSocket.accept();
+                    String enderecoCliente = cliente.getInetAddress().getHostAddress();
 
-                if (semaforo.tryAcquire()) {
-                    int idCliente = contadorId.incrementAndGet();
-                    System.out.println("Nova conexão com o cliente " + enderecoCliente +
-                            " | Conexões ativas: " + (MAX_CONEXOES - semaforo.availablePermits()));
-
-                    Thread thread = new Thread(() -> atenderCliente(idCliente, cliente));
-                    thread.start();
-                } else {
-                    System.out.println("Conexão recusada (limite atingido): " + enderecoCliente);
-                    cliente.close();
+                    // Tenta adquirir uma vaga no semáforo sem bloquear a thread principal
+                    if (semaforo.tryAcquire()) {
+                        int idCliente = contadorId.incrementAndGet();
+                        atenderCliente(idCliente, cliente);
+                    } else {
+                        System.out.println("Limite de conexões atingido para: " + enderecoCliente);
+                        fecharSocketImediatamente(cliente);
+                    }
+                } catch (SocketException e) {
+                    if (serverSocket.isClosed()) {
+                        System.out.println("Servidor parou de aceitar novas conexões.");
+                    } else {
+                        System.err.println("Erro no accept: " + e.getMessage());
+                    }
                 }
             }
-
         } catch (IOException e) {
-            System.err.println("Erro ao iniciar o servidor: " + e.getMessage());
+            System.err.println("Erro fatal no servidor: " + e.getMessage());
         }
     }
 
     private void atenderCliente(int idCliente, Socket cliente) {
-        try {
-            Scanner s = new Scanner(cliente.getInputStream());
+        BlockingQueue<String> filaSaida = new LinkedBlockingQueue<>();
 
-            // Pontos bloqueantes
-            while (s.hasNextLine()) {
-                // Pontos bloqueantes
-                System.out.println("[Cliente #" + idCliente + "] " + s.nextLine());
+        // Criamos uma fila fictícia para o broadcast para satisfazer o construtor
+        BlockingQueue<String> filaBroadcastDummy = new LinkedBlockingQueue<>();
+
+        Runnable callbackFechamento = () -> encerrarConexao(idCliente, cliente);
+
+        Thread tLeitura = new Thread(new ThreadLeitura(idCliente, cliente, filaSaida, callbackFechamento));
+
+        // Agora passamos os 4 argumentos exigidos
+        Thread tEscrita = new Thread(new ThreadEscrita(idCliente, cliente, filaSaida, filaBroadcastDummy));
+
+        tLeitura.start();
+        tEscrita.start();
+    }
+
+    private void monitorarComandos() {
+        Thread adminThread = new Thread(() -> {
+            Scanner console = new Scanner(System.in);
+            System.out.println("[ADMIN] Digite 'sair' a qualquer momento para encerrar o servidor.");
+            while (true) {
+                if (console.hasNextLine()) {
+                    String comando = console.nextLine();
+                    if (comando.equalsIgnoreCase("sair") || comando.equalsIgnoreCase("encerrar")) {
+                        fechar();
+                        break;
+                    }
+                }
             }
+        });
+        adminThread.setDaemon(true); // Garante que a thread feche se o servidor parar
+        adminThread.start();
+    }
 
-            s.close();
-            cliente.close();
-
+    // Método sincronizado para garantir que o encerramento ocorra apenas uma vez por cliente
+    private synchronized void encerrarConexao(int idCliente, Socket cliente) {
+        try {
+            if (cliente != null && !cliente.isClosed()) {
+                cliente.close();
+                semaforo.release(); // Devolve a vaga para o semáforo
+                System.out.println("[Servidor] Conexão do Cliente #" + idCliente + " encerrada. Vaga liberada.");
+            }
         } catch (IOException e) {
-            System.err.println("[Cliente #" + idCliente + "] Erro: " + e.getMessage());
-        } finally {
-            semaforo.release();
-            // Feedback de desconexão do cliente
-            System.out.println("[Cliente #" + idCliente + "] Desconectado | Conexões ativas: " +
-                    (MAX_CONEXOES - semaforo.availablePermits()));
+            System.err.println("Erro ao encerrar conexão do cliente #" + idCliente + ": " + e.getMessage());
+        }
+    }
+
+    private void fecharSocketImediatamente(Socket cliente) {
+        try {
+            cliente.close();
+        } catch (IOException e) {
+            // Ignora erro ao fechar conexão recusada
         }
     }
 
     public void fechar() {
         try {
-            if (serverSocket != null) serverSocket.close();
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                System.out.println("[Servidor] Fechando socket principal...");
+                serverSocket.close();
+            }
         } catch (IOException e) {
             System.err.println("Erro ao fechar o servidor: " + e.getMessage());
         }
