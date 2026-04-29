@@ -102,14 +102,14 @@ public class Servidor {
     // Método sincronizado para garantir que o encerramento ocorra apenas uma vez por cliente
     private synchronized void encerrarConexao(int idCliente, Socket cliente) {
         try {
+            if (!encerrando) {
+                semaforo.release();
+                sessoesAtivas.remove(idCliente);
+                System.out.println("[Servidor] Cliente #" + idCliente + " desconectado. "
+                        + "Vagas disponíveis: " + semaforo.availablePermits());
+            }
             if (cliente != null && !cliente.isClosed()) {
                 cliente.close();
-                if (!encerrando) {
-                    semaforo.release();         // só libera vaga em desconexão normal
-                    sessoesAtivas.remove(idCliente);
-                    System.out.println("[Servidor] Cliente #" + idCliente + " desconectado. "
-                            + "Vagas disponíveis: " + semaforo.availablePermits());
-                }
             }
         } catch (IOException e) {
             System.err.println("Erro ao encerrar conexão do cliente #" + idCliente + ": " + e.getMessage());

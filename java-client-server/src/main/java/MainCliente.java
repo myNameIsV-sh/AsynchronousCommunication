@@ -32,7 +32,7 @@ public class MainCliente {
             tRecepcao.start();
 
             Scanner teclado = new Scanner(System.in);
-            System.out.println("Digite suas mensagens (digite 'sair' para encerrar):");
+            System.out.println("Comandos disponíveis: PING, UPTIME, RAND, PALINDROMO <frase>, VERSION, HELP");
 
             while (true) {
                 System.out.print("> [Cliente #" + meuId[0] + "]: ");
