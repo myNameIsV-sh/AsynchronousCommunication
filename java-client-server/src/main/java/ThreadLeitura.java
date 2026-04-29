@@ -12,6 +12,8 @@ public class ThreadLeitura implements Runnable {
     private final BlockingQueue<String> filaEcho;      // respostas ao próprio cliente
     private final Runnable aoEncerrar;
 
+    private final ProcessadorMensagem processador;
+
     private final Servidor servidor; // referência para disparar o broadcast
 
     public ThreadLeitura(int id, Socket socket,
@@ -23,6 +25,7 @@ public class ThreadLeitura implements Runnable {
         this.filaEcho  = filaEcho;
         this.aoEncerrar = aoEncerrar;
         this.servidor  = servidor;
+        this.processador = new ProcessadorMensagem(id, servidor);
     }
 
     @Override
@@ -35,8 +38,10 @@ public class ThreadLeitura implements Runnable {
 
                 if (msg.equalsIgnoreCase("sair")) break;
 
-                filaEcho.put("Servidor recebeu: " + msg);
-                servidor.realizarBroadcast("[Cliente #" + id + "]: " + msg, id);
+                // filaEcho.put("Servidor recebeu: " + msg);
+                // servidor.realizarBroadcast("[Cliente #" + id + "]: " + msg, id);
+                String resposta = processador.processar(msg);
+                filaEcho.put(resposta);
             }
         } catch (java.net.SocketTimeoutException e) {
             System.out.println("[Leitura #" + id + "] Cliente #" + id + " removido por inatividade.");

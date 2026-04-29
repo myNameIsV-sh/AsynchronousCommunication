@@ -18,6 +18,7 @@ public class Servidor {
     private static final int MAX_CONEXOES = 5;
     private final Semaphore semaforo = new Semaphore(MAX_CONEXOES);
     private volatile boolean encerrando = false;
+    private final long iniciadoEm = System.currentTimeMillis();
 
     private final ConcurrentHashMap<Integer, SessaoCliente> sessoesAtivas = new ConcurrentHashMap<>();
 
@@ -168,5 +169,9 @@ public class Servidor {
         } catch (IOException e) {
             System.err.println("Erro ao fechar o servidor: " + e.getMessage());
         }
+    }
+
+    public long getUptimeEmSegundos() {
+        return (System.currentTimeMillis() - iniciadoEm) / 1000;
     }
 }
