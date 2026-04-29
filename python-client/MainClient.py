@@ -1,12 +1,22 @@
-from Client import Client
+from ./Client import Client
 
 def main():
     cliente = Client("127.0.0.1", 12345)
     cliente.conectar()
 
     if cliente.esta_conectado():
-        print("Digite suas mensagens (digite 'sair' para encerrar):")
+        # consome o ID e a boas-vindas
+        id_linha = cliente.receber_resposta()
+        if id_linha and id_linha.startswith("__ID__"):
+            meu_id = id_linha.replace("__ID__", "").strip()
+            print(f"Você é o Cliente #{meu_id}")
         
+        boas_vindas = cliente.receber_resposta()
+        if boas_vindas:
+            print(f"[Servidor] {boas_vindas}")
+
+        print("Digite suas mensagens (digite 'sair' para encerrar):")
+
         while True:
             mensagem = input("> ")
             if mensagem.lower() == 'sair':
@@ -15,7 +25,7 @@ def main():
             if cliente.enviar_mensagem(mensagem):
                 resposta = cliente.receber_resposta()
                 if resposta:
-                    print(f"Servidor: {resposta}")
+                    print(f"[Servidor] {resposta}")
                 else:
                     break
             else:

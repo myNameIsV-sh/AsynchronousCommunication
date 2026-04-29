@@ -11,6 +11,7 @@ class Client:
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((self.host, self.porta))
+            self.reader = self.socket.makefile('r', encoding='utf-8')
             print("O cliente se conectou ao servidor!")
         except ConnectionRefusedError:
             print("Erro ao conectar: Conexão recusada (servidor offline).")
@@ -24,7 +25,7 @@ class Client:
             return False
         
         try:
-            self.socket.sendall(mensagem.encode('utf-8'))
+            self.socket.sendall((mensagem + "\n").encode('utf-8'))
             return True
         except (ConnectionResetError, BrokenPipeError):
             print("Erro ao enviar: O servidor encerrou a conexão.")
@@ -36,11 +37,11 @@ class Client:
             return None
         
         try:
-            dados = self.socket.recv(buffer_size)
-            if not dados:
+            linha = self.reader.readline()
+            if not linha:
                 print("O servidor encerrou a sessão.")
                 return None
-            return dados.decode('utf-8')
+            return linha.strip() 
         except Exception as e:
             print(f"Erro ao receber dados: {e}")
             return None
