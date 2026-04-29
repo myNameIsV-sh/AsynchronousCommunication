@@ -108,6 +108,7 @@ public class Servidor {
                 System.out.println("[Servidor] Cliente #" + idCliente + " desconectado. "
                         + "Vagas disponíveis: " + semaforo.availablePermits());
             }
+            // bug fix
             if (cliente != null && !cliente.isClosed()) {
                 cliente.close();
             }
